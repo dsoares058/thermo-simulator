@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engine Thermodynamic Cycle Simulator — Daniel Soares</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f3;
+      --bg-tertiary: #ededea;
+      --bg-info: #e6f1fb;
+      --text-primary: #1a1a18;
+      --text-secondary: #5f5e5a;
+      --text-info: #185fa5;
+      --border-light: rgba(0,0,0,0.1);
+      --border-medium: rgba(0,0,0,0.18);
+      --border-info: #85b7eb;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --blue: #378ADD;
+      --coral: #D85A30;
+      --teal: #1D9E75;
+      --gray: #888780;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1c1c1a;
+        --bg-secondary: #252523;
+        --bg-tertiary: #2e2e2b;
+        --bg-info: #0c2d4a;
+        --text-primary: #f0ede6;
+        --text-secondary: #a0a09a;
+        --text-info: #85b7eb;
+        --border-light: rgba(255,255,255,0.08);
+        --border-medium: rgba(255,255,255,0.15);
+        --border-info: #185fa5;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--bg-primary);
+      border-bottom: 0.5px solid var(--border-light);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left h1 { font-size: 16px; font-weight: 500; color: var(--text-primary); }
+    .header-left p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .header-right { font-size: 12px; color: var(--text-secondary); }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 24px; }
+
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+    .cycle-tabs { display: flex; gap: 6px; }
+    .cycle-tab {
+      padding: 8px 20px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium); background: transparent;
+      cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .cycle-tab.active { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-medium); }
+    .export-btn {
+      padding: 8px 16px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium); background: transparent;
+      cursor: pointer; font-size: 12px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .export-btn:hover { background: var(--bg-secondary); }
+
+    .presets-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+    .preset-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-right: 4px; }
+    .preset-btn {
+      padding: 5px 12px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-light); background: transparent;
+      cursor: pointer; font-size: 11px; font-weight: 500; color: var(--text-secondary);
+      transition: all 0.12s;
+    }
+    .preset-btn:hover { background: var(--bg-secondary); border-color: var(--border-medium); }
+    .preset-btn.active { background: var(--bg-info); color: var(--text-info); border-color: var(--border-info); }
+
+    .main-grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; margin-bottom: 16px; }
+
+    .panel { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); padding: 16px; }
+    .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin-bottom: 14px; }
+
+    .ctrl { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .ctrl-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
+    .ctrl-label span:last-child { font-weight: 500; color: var(--text-primary); }
+    input[type=range] { width: 100%; accent-color: var(--blue); }
+
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 16px; }
+    .metric { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 10px 12px; }
+    .metric-lbl { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+    .metric-val { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+    .metric-unit { font-size: 10px; color: var(--text-secondary); }
+
+    .charts-col { display: flex; flex-direction: column; gap: 12px; }
+    .chart-box { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); padding: 14px; flex: 1; }
+    .chart-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin-bottom: 10px; }
+    .chart-wrap { position: relative; width: 100%; height: 200px; }
+
+    .desc-box {
+      font-size: 12px; color: var(--text-secondary); line-height: 1.65;
+      padding: 12px 14px; background: var(--bg-primary);
+      border-radius: var(--radius-lg); border: 0.5px solid var(--border-light);
+      border-left: 2px solid var(--border-medium); margin-bottom: 16px;
+    }
+
+    .ai-panel { background: var(--bg-primary); border-radius: var(--radius-lg); border: 0.5px solid var(--border-light); overflow: hidden; }
+    .ai-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-secondary); border-bottom: 0.5px solid var(--border-light); }
+    .ai-header-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    .ai-header-sub { font-size: 11px; color: var(--text-secondary); }
+
+    .ai-messages { min-height: 140px; max-height: 340px; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { display: flex; flex-direction: column; max-width: 85%; }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.assistant { align-self: flex-start; }
+    .msg-bubble { padding: 9px 13px; border-radius: var(--radius-md); font-size: 13px; line-height: 1.6; }
+    .msg.user .msg-bubble { background: var(--bg-info); color: var(--text-info); border-radius: var(--radius-md) var(--radius-md) 4px var(--radius-md); }
+    .msg.assistant .msg-bubble { background: var(--bg-secondary); color: var(--text-primary); border: 0.5px solid var(--border-light); border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md); }
+
+    .quick-btns { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 14px; border-top: 0.5px solid var(--border-light); }
+    .quick-btn {
+      padding: 5px 11px; border-radius: 20px;
+      border: 0.5px solid var(--border-light); background: transparent;
+      cursor: pointer; font-size: 11px; color: var(--text-secondary); transition: all 0.12s;
+    }
+    .quick-btn:hover { background: var(--bg-secondary); }
+
+    .ai-input-row { display: flex; gap: 8px; padding: 12px 14px; border-top: 0.5px solid var(--border-light); }
+    .ai-input {
+      flex: 1; padding: 9px 12px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium); background: var(--bg-primary);
+      font-size: 13px; color: var(--text-primary); resize: none;
+      font-family: inherit; outline: none;
+    }
+    .ai-input:focus { border-color: var(--blue); }
+    .ai-send {
+      padding: 9px 18px; border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-medium); background: transparent;
+      cursor: pointer; font-size: 13px; color: var(--text-secondary);
+      font-family: inherit; transition: all 0.12s; white-space: nowrap;
+    }
+    .ai-send:hover { background: var(--bg-secondary); }
+    .ai-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    footer { text-align: center; padding: 20px; font-size: 11px; color: var(--text-secondary); }
+
+    @media (max-width: 700px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .metrics-grid { grid-template-columns: repeat(2,1fr); }
+      header { padding: 12px 16px; }
+      .container { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Engine Thermodynamic Cycle Simulator</h1>
+    <p>Otto · Diesel · Brayton — interactive analysis with AI assistant</p>
+  </div>
+  <div class="header-right">Daniel Soares · Bucknell University ME</div>
+</header>
+
+<div class="container">
+
+  <div class="top-bar">
+    <div class="cycle-tabs">
+      <button class="cycle-tab active" onclick="setCycle('otto')">Otto</button>
+      <button class="cycle-tab" onclick="setCycle('diesel')">Diesel</button>
+      <button class="cycle-tab" onclick="setCycle('brayton')">Brayton</button>
+    </div>
+    <button class="export-btn" onclick="exportPNG()">
+      <i class="ti ti-download"></i> Export image
+    </button>
+  </div>
+
+  <div class="presets-row" id="presetsRow"></div>
+
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-title">Parameters</div>
+      <div id="controls"></div>
+      <div class="metrics-grid" id="metrics"></div>
+    </div>
+    <div class="charts-col">
+      <div class="chart-box">
+        <div class="chart-title">P-V diagram — Pressure vs. specific volume</div>
+        <div class="chart-wrap"><canvas id="pvChart" role="img" aria-label="Pressure-volume diagram"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">T-s diagram — Temperature vs. entropy</div>
+        <div class="chart-wrap"><canvas id="tsChart" role="img" aria-label="Temperature-entropy diagram"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="desc-box" id="descBox"></div>
+
+  <div class="ai-panel">
+    <div class="ai-header">
+      <i class="ti ti-message-circle" style="font-size:18px;color:var(--text-secondary)"></i>
+      <div>
+        <div class="ai-header-label">AI engineering assistant</div>
+        <div class="ai-header-sub">Powered by Claude · Ask anything about your current cycle and results</div>
+      </div>
+    </div>
+    <div class="ai-messages" id="aiMessages">
+      <div class="msg assistant">
+        <div class="msg-bubble">Hello! I'm your thermodynamics assistant. Load a preset or adjust the sliders, then ask me anything — why efficiency changes, what real-world factors matter, or how to interpret the diagrams.</div>
+      </div>
+    </div>
+    <div class="quick-btns">
+      <button class="quick-btn" onclick="quickAsk('Why is efficiency lower than the Carnot limit?')">Why below Carnot?</button>
+      <button class="quick-btn" onclick="quickAsk('What happens to efficiency if I increase the compression ratio further?')">More compression →</button>
+      <button class="quick-btn" onclick="quickAsk('Explain the T-s diagram for this cycle')">Explain T-s diagram</button>
+      <button class="quick-btn" onclick="quickAsk('How does this cycle compare to the other two cycles?')">Compare cycles</button>
+      <button class="quick-btn" onclick="quickAsk('What real-world factors reduce efficiency below the ideal cycle prediction?')">Real-world losses</button>
+    </div>
+    <div class="ai-input-row">
+      <textarea class="ai-input" id="aiInput" rows="1" placeholder="Ask about efficiency, temperatures, real engines..." onkeydown="handleKey(event)"></textarea>
+      <button class="ai-send" id="aiSend" onclick="sendAI()">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>Engine Thermodynamic Cycle Simulator · Daniel Soares · Bucknell University Mechanical Engineering</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let currentCycle = 'otto';
+let pvChart = null, tsChart = null;
+let params = {};
+let activePreset = null;
+let isStreaming = false;
+let chatHistory = [];
+
+const presets = {
+  otto: [
+    { name: 'Toyota Camry 3.5L V6', params: { r: 11.8, gamma: 1.35, T1: 300, P1: 101 } },
+    { name: 'Honda Civic 1.5T', params: { r: 10.3, gamma: 1.35, T1: 305, P1: 100 } },
+    { name: 'Ferrari 488', params: { r: 9.4, gamma: 1.35, T1: 300, P1: 101 } },
+    { name: 'High-compression race', params: { r: 13.5, gamma: 1.35, T1: 298, P1: 101 } },
+  ],
+  diesel: [
+    { name: 'Cummins ISX (semi)', params: { r: 22, rc: 2.1, gamma: 1.35, T1: 300 } },
+    { name: 'Ford Power Stroke 6.7L', params: { r: 16.2, rc: 2.4, gamma: 1.35, T1: 305 } },
+    { name: 'Marine diesel', params: { r: 20, rc: 2.8, gamma: 1.35, T1: 298 } },
+    { name: 'VW TDI 2.0L', params: { r: 16.5, rc: 2.2, gamma: 1.35, T1: 300 } },
+  ],
+  brayton: [
+    { name: 'CFM56 (Boeing 737)', params: { rp: 32, gamma: 1.4, T1: 288, T3: 1550 } },
+    { name: 'GE90 (Boeing 777)', params: { rp: 39, gamma: 1.4, T1: 288, T3: 1650 } },
+    { name: 'Pratt & Whitney F135', params: { rp: 28, gamma: 1.4, T1: 288, T3: 1800 } },
+    { name: 'Industrial gas turbine', params: { rp: 18, gamma: 1.4, T1: 298, T3: 1300 } },
+  ]
+};
+
+const cycles = {
+  otto: {
+    desc: 'The Otto cycle models spark-ignition gasoline engines. Combustion occurs at constant volume (vertical lines on the P-V diagram). Thermal efficiency depends only on the compression ratio and γ — higher compression ratio means higher efficiency, but risks knock (pre-ignition). Real engines achieve roughly 25–35% brake thermal efficiency due to friction, heat losses, and non-ideal combustion.',
+    params: [
+      { id:'r', label:'Compression ratio', min:4, max:14, step:0.5, default:8, unit:':1', fmt:v=>v.toFixed(1) },
+      { id:'gamma', label:'Specific heat ratio γ', min:1.2, max:1.67, step:0.01, default:1.4, unit:'', fmt:v=>v.toFixed(2) },
+      { id:'T1', label:'Inlet temperature', min:280, max:340, step:5, default:300, unit:' K', fmt:v=>Math.round(v) },
+      { id:'P1', label:'Inlet pressure', min:80, max:120, step:5, default:101, unit:' kPa', fmt:v=>Math.round(v) },
+    ],
+    compute(p) {
+      const {r,gamma,T1,P1}=p;
+      const eta=1-Math.pow(r,1-gamma);
+      const T2=T1*Math.pow(r,gamma-1);
+      const P2=P1*Math.pow(r,gamma);
+      const T3=T2*2.2;
+      const carnot=1-T1/T3;
+      return {eta,T1,T2,T3,P1,P2,carnot};
+    },
+    pvPoints(p,res) {
+      const {r,gamma,P1}=p; const {T2,T3,P2}=res;
+      const V1=1,V2=1/r,P3=P2*(T3/T2),P4=P3*Math.pow(V2/V1,gamma);
+      const n=50,comp=[],exp=[];
+      for(let i=0;i<=n;i++){const V=V1-(V1-V2)*i/n;comp.push({x:+V.toFixed(4),y:+(P1*Math.pow(V1/V,gamma)/100).toFixed(3)});}
+      for(let i=0;i<=n;i++){const V=V2+(V1-V2)*i/n;exp.push({x:+V.toFixed(4),y:+(P3*Math.pow(V2/V,gamma)/100).toFixed(3)});}
+      return [
+        {label:'1→2 Compression',data:comp,borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Combustion',data:[{x:V2,y:+(P2/100).toFixed(3)},{x:V2,y:+(P3/100).toFixed(3)}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:exp,borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Exhaust',data:[{x:V1,y:+(P4/100).toFixed(3)},{x:V1,y:+(P1/100).toFixed(3)}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    },
+    tsPoints(p,res) {
+      const {T1,T2,T3}=res; const cv=0.718;
+      const s1=0,s2=0,s3=s2+cv*Math.log(T3/T2),s4=s3,T4=T1*Math.pow(T3/T2,1),s5=s3+cv*Math.log(T1/T4);
+      return [
+        {label:'1→2 Compression',data:[{x:s1,y:T1},{x:s2,y:T2}],borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Heat in',data:[{x:s2,y:T2},{x:s3,y:T3}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:[{x:s3,y:T3},{x:s4,y:T4}],borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Heat out',data:[{x:s4,y:T4},{x:s5,y:T1}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    }
+  },
+  diesel: {
+    desc: 'The Diesel cycle models compression-ignition engines. Fuel ignites from the heat of compression alone — no spark plug needed. Heat addition occurs at constant pressure (horizontal line on P-V). Higher compression ratios than Otto yield greater efficiency. The cutoff ratio rc controls how long combustion lasts; a lower cutoff ratio improves efficiency.',
+    params: [
+      { id:'r', label:'Compression ratio', min:12, max:24, step:0.5, default:18, unit:':1', fmt:v=>v.toFixed(1) },
+      { id:'rc', label:'Cutoff ratio', min:1.2, max:4, step:0.1, default:2.5, unit:'', fmt:v=>v.toFixed(1) },
+      { id:'gamma', label:'Specific heat ratio γ', min:1.2, max:1.67, step:0.01, default:1.35, unit:'', fmt:v=>v.toFixed(2) },
+      { id:'T1', label:'Inlet temperature', min:280, max:340, step:5, default:300, unit:' K', fmt:v=>Math.round(v) },
+    ],
+    compute(p) {
+      const {r,rc,gamma,T1}=p;
+      const eta=1-(1/Math.pow(r,gamma-1))*((Math.pow(rc,gamma)-1)/(gamma*(rc-1)));
+      const T2=T1*Math.pow(r,gamma-1); const T3=T2*rc; const T4=T3*Math.pow(rc/r,gamma-1);
+      return {eta,T1,T2,T3,T4,carnot:1-T1/T3};
+    },
+    pvPoints(p,res) {
+      const {r,rc,gamma}=p; const P1=100,V1=1,V2=1/r,V3=V2*rc,P2=P1*Math.pow(r,gamma);
+      const n=50,comp=[],exp=[];
+      for(let i=0;i<=n;i++){const V=V1-(V1-V2)*i/n;comp.push({x:+V.toFixed(4),y:+(P1*Math.pow(V1/V,gamma)/100).toFixed(3)});}
+      for(let i=0;i<=n;i++){const V=V3+(V1-V3)*i/n;exp.push({x:+V.toFixed(4),y:+(P2*Math.pow(V3/V,gamma)/100).toFixed(3)});}
+      return [
+        {label:'1→2 Compression',data:comp,borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Combustion',data:[{x:V2,y:+(P2/100).toFixed(3)},{x:V3,y:+(P2/100).toFixed(3)}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:exp,borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Exhaust',data:[{x:V1,y:+(P2*Math.pow(V3/V1,gamma)/100).toFixed(3)},{x:V1,y:+(P1/100).toFixed(3)}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    },
+    tsPoints(p,res) {
+      const {T1,T2,T3,T4}=res; const {gamma}=p; const cv=0.718,cp=gamma*cv;
+      const s1=0,s2=0,s3=s2+cp*Math.log(T3/T2),s4=s3,s5=s3+cv*Math.log(T1/T4);
+      return [
+        {label:'1→2 Compression',data:[{x:s1,y:T1},{x:s2,y:T2}],borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Heat in',data:[{x:s2,y:T2},{x:s3,y:T3}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:[{x:s3,y:T3},{x:s4,y:T4}],borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Heat out',data:[{x:s4,y:T4},{x:s5,y:T1}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    }
+  },
+  brayton: {
+    desc: 'The Brayton cycle models gas turbines and jet engines. The working fluid remains in the gas phase throughout the cycle — no phase change. Efficiency rises with pressure ratio. Used in the CFM56 engines on Boeing 737s (rp ≈ 32) and GE90 on 777s (rp ≈ 39). Turbine inlet temperature is limited by blade material — a key frontier in aerospace materials research.',
+    params: [
+      { id:'rp', label:'Pressure ratio', min:2, max:42, step:1, default:10, unit:':1', fmt:v=>Math.round(v) },
+      { id:'gamma', label:'Specific heat ratio γ', min:1.3, max:1.67, step:0.01, default:1.4, unit:'', fmt:v=>v.toFixed(2) },
+      { id:'T1', label:'Compressor inlet temp', min:250, max:320, step:5, default:288, unit:' K', fmt:v=>Math.round(v) },
+      { id:'T3', label:'Turbine inlet temp', min:1000, max:1800, step:50, default:1400, unit:' K', fmt:v=>Math.round(v) },
+    ],
+    compute(p) {
+      const {rp,gamma,T1,T3}=p;
+      const eta=1-Math.pow(rp,(1-gamma)/gamma);
+      const T2=T1*Math.pow(rp,(gamma-1)/gamma);
+      const T4=T3/Math.pow(rp,(gamma-1)/gamma);
+      return {eta,T1,T2,T3,T4,carnot:1-T1/T3};
+    },
+    pvPoints(p,res) {
+      const {rp,gamma}=p; const {T1,T2,T3,T4}=res; const R=0.287,P1=1,P2=rp;
+      const n=50,comp=[],exp=[];
+      for(let i=0;i<=n;i++){const f=i/n;const T=T1+(T2-T1)*f;const P=P1*Math.pow(T/T1,gamma/(gamma-1));comp.push({x:+(R*T/P/100).toFixed(4),y:+P.toFixed(3)});}
+      for(let i=0;i<=n;i++){const f=i/n;const T=T3-(T3-T4)*f;const P=P2*Math.pow(T/T3,gamma/(gamma-1));exp.push({x:+(R*T/P/100).toFixed(4),y:+P.toFixed(3)});}
+      return [
+        {label:'1→2 Compression',data:comp,borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Heat in',data:[{x:R*T2/P2/100,y:P2},{x:R*T3/P2/100,y:P2}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:exp,borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Heat out',data:[{x:R*T4/P1/100,y:P1},{x:R*T1/P1/100,y:P1}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    },
+    tsPoints(p,res) {
+      const {T1,T2,T3,T4}=res; const cp=1.005;
+      const s1=0,s2=0,s3=s2+cp*Math.log(T3/T2),s4=s3,s5=s3+cp*Math.log(T1/T4);
+      return [
+        {label:'1→2 Compression',data:[{x:s1,y:T1},{x:s2,y:T2}],borderColor:'#378ADD',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'2→3 Heat in',data:[{x:s2,y:T2},{x:s3,y:T3}],borderColor:'#D85A30',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'3→4 Expansion',data:[{x:s3,y:T3},{x:s4,y:T4}],borderColor:'#1D9E75',pointRadius:0,borderWidth:2,showLine:true},
+        {label:'4→1 Heat out',data:[{x:s4,y:T4},{x:s5,y:T1}],borderColor:'#888780',pointRadius:0,borderWidth:2,showLine:true,borderDash:[4,3]},
+      ];
+    }
+  }
+};
+
+const chartOpts=(xL,yL)=>({
+  responsive:true,maintainAspectRatio:false,animation:false,
+  plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,font:{size:10},color:'#888780',padding:8}},tooltip:{enabled:false}},
+  scales:{
+    x:{title:{display:true,text:xL,font:{size:10},color:'#888780'},grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780',maxTicksLimit:5}},
+    y:{title:{display:true,text:yL,font:{size:10},color:'#888780'},grid:{color:'rgba(136,135,128,0.12)'},ticks:{font:{size:10},color:'#888780',maxTicksLimit:5}}
+  }
+});
+
+function getContext() {
+  const res = cycles[currentCycle].compute(params);
+  const pName = activePreset !== null ? presets[currentCycle][activePreset].name : 'custom';
+  const pStr = Object.entries(params).map(([k,v])=>`${k}=${typeof v==='number'?v.toFixed(2):v}`).join(', ');
+  return `The user is using an Engine Thermodynamic Cycle Simulator. Current state:
+- Cycle: ${currentCycle} (${pName})
+- Parameters: ${pStr}
+- Thermal efficiency: ${(res.eta*100).toFixed(1)}%
+- Carnot limit: ${(res.carnot*100).toFixed(1)}%
+- Compressor/piston outlet temperature T2: ${Math.round(res.T2)} K
+- Peak temperature T3: ${Math.round(res.T3)} K
+You are a knowledgeable thermodynamics and mechanical engineering assistant. Give clear, accurate, concise answers (2-4 sentences unless more detail is needed). Use the actual numbers from the current simulation in your explanations. Be educational but approachable — the user is a junior ME student at Bucknell University interested in aerospace and automotive applications.`;
+}
+
+async function sendAI() {
+  const input = document.getElementById('aiInput');
+  const question = input.value.trim();
+  if(!question || isStreaming) return;
+  input.value = '';
+  isStreaming = true;
+  document.getElementById('aiSend').disabled = true;
+  addMsg('user', question);
+  chatHistory.push({ role: 'user', content: question });
+  const bubbleId = 'bubble-' + Date.now();
+  addMsg('assistant', '', bubbleId);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: getContext(),
+        stream: true,
+        messages: chatHistory
+      })
+    });
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '', buf = '';
+    while(true) {
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += decoder.decode(value, {stream:true});
+      const lines = buf.split('\n'); buf = lines.pop();
+      for(const line of lines) {
+        if(line.startsWith('data: ')) {
+          const d = line.slice(6).trim();
+          if(d==='[DONE]') continue;
+          try {
+            const parsed = JSON.parse(d);
+            if(parsed.type==='content_block_delta'&&parsed.delta?.type==='text_delta') {
+              full += parsed.delta.text;
+              const el = document.getElementById(bubbleId);
+              if(el) el.textContent = full;
+              scrollMessages();
+            }
+          } catch(e){}
+        }
+      }
+    }
+    chatHistory.push({ role: 'assistant', content: full });
+  } catch(e) {
+    const el = document.getElementById(bubbleId);
+    if(el) el.textContent = 'Something went wrong. Check your API key or network connection.';
+  }
+  isStreaming = false;
+  document.getElementById('aiSend').disabled = false;
+}
+
+function addMsg(role, text, id) {
+  const msgs = document.getElementById('aiMessages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  if(id) bubble.id = id;
+  bubble.textContent = text || '…';
+  div.appendChild(bubble);
+  msgs.appendChild(div);
+  scrollMessages();
+}
+
+function scrollMessages() {
+  const msgs = document.getElementById('aiMessages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function quickAsk(q) {
+  document.getElementById('aiInput').value = q;
+  sendAI();
+}
+
+function handleKey(e) {
+  if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAI(); }
+}
+
+function setCycle(c) {
+  currentCycle = c; activePreset = null; chatHistory = [];
+  document.querySelectorAll('.cycle-tab').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim().toLowerCase()===c);
+  });
+  params = {};
+  cycles[c].params.forEach(p => params[p.id]=p.default);
+  renderPresets(); renderControls(); update();
+}
+
+function loadPreset(idx) {
+  activePreset = idx;
+  Object.assign(params, presets[currentCycle][idx].params);
+  cycles[currentCycle].params.forEach(p => {
+    const el=document.getElementById('rng-'+p.id);
+    if(el){ el.value=params[p.id]; document.getElementById('val-'+p.id).textContent=p.fmt(params[p.id])+p.unit; }
+  });
+  renderPresets(); update();
+}
+
+function renderPresets() {
+  document.getElementById('presetsRow').innerHTML = `<span class="preset-label">Presets:</span>` +
+    presets[currentCycle].map((pr,i)=>`<button class="preset-btn${activePreset===i?' active':''}" onclick="loadPreset(${i})">${pr.name}</button>`).join('');
+}
+
+function renderControls() {
+  document.getElementById('controls').innerHTML = cycles[currentCycle].params.map(p=>`
+    <div class="ctrl">
+      <div class="ctrl-label"><span>${p.label}</span><span id="val-${p.id}">${p.fmt(p.default)}${p.unit}</span></div>
+      <input type="range" min="${p.min}" max="${p.max}" step="${p.step}" value="${p.default}" id="rng-${p.id}" oninput="onSlider('${p.id}',this.value)">
+    </div>`).join('');
+  document.getElementById('descBox').textContent = cycles[currentCycle].desc;
+}
+
+function onSlider(id, val) {
+  activePreset = null; renderPresets();
+  params[id] = parseFloat(val);
+  const pd = cycles[currentCycle].params.find(p=>p.id===id);
+  document.getElementById('val-'+id).textContent = pd.fmt(parseFloat(val))+pd.unit;
+  update();
+}
+
+function update() {
+  const info = cycles[currentCycle];
+  const res = info.compute(params);
+  document.getElementById('metrics').innerHTML = [
+    {lbl:'Thermal efficiency',val:(res.eta*100).toFixed(1),unit:'%'},
+    {lbl:'Carnot limit',val:(res.carnot*100).toFixed(1),unit:'%'},
+    {lbl:'Outlet temp T2',val:Math.round(res.T2),unit:'K'},
+    {lbl:'Peak temp T3',val:Math.round(res.T3),unit:'K'},
+  ].map(m=>`<div class="metric"><div class="metric-lbl">${m.lbl}</div><div class="metric-val">${m.val}<span class="metric-unit"> ${m.unit}</span></div></div>`).join('');
+
+  const pvDs = info.pvPoints(params,res);
+  const tsDs = info.tsPoints(params,res);
+  const pvX = currentCycle==='brayton'?'Specific volume (m³/kg)':'Specific volume (relative)';
+
+  if(pvChart){pvChart.data.datasets=pvDs;pvChart.update('none');}
+  else{pvChart=new Chart(document.getElementById('pvChart'),{type:'scatter',data:{datasets:pvDs},options:chartOpts(pvX,'Pressure')});}
+  if(tsChart){tsChart.data.datasets=tsDs;tsChart.update('none');}
+  else{tsChart=new Chart(document.getElementById('tsChart'),{type:'scatter',data:{datasets:tsDs},options:chartOpts('Entropy (kJ/kg·K)','Temperature (K)')});}
+}
+
+function exportPNG() {
+  const canvases = document.querySelectorAll('canvas');
+  const ec = document.createElement('canvas');
+  ec.width=1400; ec.height=900;
+  const ctx=ec.getContext('2d');
+  ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,1400,900);
+  ctx.fillStyle='#111'; ctx.font='bold 24px sans-serif';
+  ctx.fillText(`${currentCycle.charAt(0).toUpperCase()+currentCycle.slice(1)} Cycle Analysis`,48,54);
+  const res=cycles[currentCycle].compute(params);
+  ctx.font='15px sans-serif'; ctx.fillStyle='#444';
+  ctx.fillText(`Thermal efficiency: ${(res.eta*100).toFixed(1)}%   ·   Peak temperature: ${Math.round(res.T3)} K   ·   Carnot limit: ${(res.carnot*100).toFixed(1)}%`,48,84);
+  ctx.font='12px sans-serif'; ctx.fillStyle='#888';
+  ctx.fillText(Object.entries(params).map(([k,v])=>`${k} = ${typeof v==='number'?v.toFixed(2):v}`).join('   ·   '),48,112);
+  if(canvases.length>=2){ctx.drawImage(canvases[0],48,140,620,400);ctx.drawImage(canvases[1],730,140,620,400);}
+  ctx.font='12px sans-serif'; ctx.fillStyle='#bbb';
+  ctx.fillText('Engine Thermodynamic Cycle Simulator · Daniel Soares · Bucknell University ME',48,880);
+  const link=document.createElement('a');
+  link.download=`${currentCycle}_cycle_analysis.png`;
+  link.href=ec.toDataURL('image/png'); link.click();
+}
+
+setCycle('otto');
+</script>
+</body>
+</html>
