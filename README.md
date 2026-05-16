@@ -11,4 +11,3 @@ Author
 Daniel Soares
 B.S. Mechanical Engineering, Bucknell University (Expected May 2028)
 Interests: aerospace and automotive propulsion, thermodynamics, computational engineering
-LinkedIn · Email
